@@ -31,12 +31,12 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.locurasoft.panelcompiler.App.Configurations.DEBUG;
+import static com.locurasoft.panelcompiler.CtrlrPanelCompiler.Configurations.DEBUG;
 
 /**
  * Hello world!
  */
-public class App {
+public class CtrlrPanelCompiler {
     private final DocumentBuilder builder;
     private final Document document;
     private final XPath xPath;
@@ -77,20 +77,20 @@ public class App {
     }
 
     public static void main(String[] args) throws Exception {
-        App app = new App(args[0]);
+        CtrlrPanelCompiler ctrlrPanelCompiler = new CtrlrPanelCompiler(args[0]);
 
         Configurations config = DEBUG;
         if (args.length > 1) {
             config = Configurations.valueOf(args[1]);
         }
 
-        app.removeOldFunctions();
-        app.addGenerics(config);
-        app.addPanelFunctions(config);
-        app.saveDocument();
+        ctrlrPanelCompiler.removeOldFunctions();
+        ctrlrPanelCompiler.addGenerics(config);
+        ctrlrPanelCompiler.addPanelFunctions(config);
+        ctrlrPanelCompiler.saveDocument();
     }
 
-    public App(String xmlPath) throws Exception {
+    public CtrlrPanelCompiler(String xmlPath) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         builder = factory.newDocumentBuilder();
         panelFile = new File(xmlPath);
