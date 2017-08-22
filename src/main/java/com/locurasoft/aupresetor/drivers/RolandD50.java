@@ -128,11 +128,8 @@ public class RolandD50 extends AbstractDriver {
         setModulatorStringValue(getNodeByName(data, "VoiceName12"), patch.getUpperToneName());
         setModulatorStringValue(getNodeByName(data, "VoiceName123"), patch.getLowerToneName());
 
-        dumpToFile(data.toString(), "1.panel");
         cleanTree(data);
-        dumpToFile(data.toString(), "2.panel");
         cloneResourcesToExport(data);
-        dumpToFile(data.toString(), "3.panel");
     }
 
     private void dumpToFile(String s, String filename) {
@@ -149,13 +146,14 @@ public class RolandD50 extends AbstractDriver {
         if (inputBytes.length == PATCH_FILE_SIZE) {
             Patch patch = newPatch(trimSyxData, 0);
             p2v(data, patch);
-            saveFile(data, data.input().getName().replace(SYX, PANEL));
+            saveFile(data, data.input().getName().replace(SYX, PANEL), patch.getPatchName().trim());
         } else if (inputBytes.length == BANK_FILE_SIZE) {
             for (int i = 0; i < 64; i++) {
                 Patch patch = newPatch(trimSyxData, i);
                 p2v(data, patch);
-                saveFile(data, data.input().getName().replace(SYX, "") + " - " +
-                        patch.getPatchName().trim() + PANEL);
+                String bankName = data.input().getName().replace(SYX, "");
+                String fileName = bankName + " - " + patch.getPatchName().trim() + PANEL;
+                saveFile(data, bankName, fileName, patch.getPatchName().trim());
             }
         } else {
             throw new IllegalArgumentException("Invalid Roland D50 buffer");

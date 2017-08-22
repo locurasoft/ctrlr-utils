@@ -67,23 +67,58 @@ public abstract class AbstractDriver implements IDriver {
         }
     }
 
-    protected void saveFile(Data data, String filename) throws TransformerException, IOException, InterruptedException {
+    private void saveFile(Data data, File folder, String filename, String patchName) throws TransformerException, IOException, InterruptedException {
         Transformer transformer = TransformerFactory.newInstance().newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
         transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-        File outputFile = new File(outputFolder, filename);
-        Result output = new StreamResult(outputFile);
-        Source input = new DOMSource(data.document);
+        if (!folder.exists() && !folder.mkdirs()) {
+            throw new IOException("Failed to create parent folder!");
+        }
+        File panelFile = new File(folder, filename);
+        Result panel = new StreamResult(panelFile);
+        Source xml = new DOMSource(data.document);
 
-        transformer.transform(input, output);
+        transformer.transform(xml, panel);
 
-        String[] cmd = {"cmd.exe", "/C", String.format("Ctrlr-Debug-Win32.exe --panelFile=\"%s\"", outputFile)};
+        String[] cmd = {"cmd.exe", "/C", String.format("Ctrlr-Debug-Win32.exe --panelFile=\"%s\"", panelFile)};
         if (ProcessUtil.execProcess(cmd)) {
             System.out.println("Done!");
         } else {
             System.out.println("fxp2aupreset failed!");
+            return;
         }
 
+        File bpanelzFile = new File(panelFile.getParent(), panelFile.getName().replace(".panel", ".bpanelz"));
+        File fxpFile = new File(panelFile.getParent(), panelFile.getName().replace(".panel", ".fxp"));
+        byte[] bpanelzBytes = IOUtils.toByteArray(new FileInputStream(bpanelzFile));
+        FileOutputStream os = new FileOutputStream(fxpFile);
+        os.write("CcnK".getBytes()); // chunkMagic
+//        os.write(); // size of chunk
+        os.write("FPCh".getBytes()); // opaque chunk
+        os.write(new byte[]{ 0x0, 0x0, 0x0, 0x1 }); // format version
+        os.write("CTRL".getBytes()); // fx unique ID
+        os.write(new byte[]{ 0x0, 0x0, 0x2, 0x1C }); // fx version
+        os.write(new byte[]{ 0x0, 0x0, 0x0, 0x1 }); // num of parameters
+        os.write(patchName.getBytes());
+        os.write(new byte[]{ 0x0, 0x1E, (byte) 0xAF, (byte) 0x97 });
+        os.write(new byte[]{ 0x40, 0x10, 0x0, 0x0 }); // size of program data
+        os.write(new byte[]{ (byte) 0x8D, (byte) 0xAF, 0x1E, 0x00, 0x0D, 0x0A });
+        os.write(bpanelzBytes);
+        os.write(new byte[]{ 0x0, 0x0 });
+        os.flush();
+        os.close();
+    }
+
+    protected void saveFile(Data data, String filename) throws InterruptedException, TransformerException, IOException {
+        saveFile(data, outputFolder, filename, "Default CTRLR program");
+    }
+
+    protected void saveFile(Data data, String bankName, String filename, String patchName) throws InterruptedException, TransformerException, IOException {
+        saveFile(data, new File(outputFolder, bankName), filename, patchName);
+    }
+
+    protected void saveFile(Data data, String filename, String patchName) throws TransformerException, IOException, InterruptedException {
+        saveFile(data, outputFolder, filename, patchName);
     }
 
     protected abstract void generateFxp(Data data) throws IOException, XPathExpressionException, TransformerException, InterruptedException, Exception;

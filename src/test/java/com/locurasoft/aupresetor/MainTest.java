@@ -10,7 +10,7 @@ import java.util.Base64;
 import java.util.Properties;
 
 /**
- * Unit test for simple Main.
+ * Unit test for simple Aupresetor.
  */
 public class MainTest {
 }

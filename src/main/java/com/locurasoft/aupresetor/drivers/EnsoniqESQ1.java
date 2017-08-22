@@ -203,15 +203,16 @@ public class EnsoniqESQ1 extends AbstractDriver {
         if (inputBytes.length == PATCH_FILE_SIZE) {
             Patch patch = new Patch(inputBytes);
             p2v(data, patch);
-            saveFile(data, data.input().getName().replace(SYX, PANEL));
+            saveFile(data, data.input().getName().replace(SYX, PANEL), patch.getPatchName().trim());
         } else if (inputBytes.length == BANK_FILE_SIZE) {
             for (int i = 0; i < NUM_PATCHES; i++) {
                 byte[] buffer = new byte[SINGLE_DATA_SIZE];
                 System.arraycopy(inputBytes, COMPLETE_HEADER_SIZE + i * SINGLE_DATA_SIZE, buffer, 0, SINGLE_DATA_SIZE);
                 Patch patch = new Patch(buffer);
                 p2v(data, patch);
-                saveFile(data, data.input().getName().replace(SYX, "") + " - " +
-                        patch.getPatchName().trim() + PANEL);
+                String bankName = data.input().getName().replace(SYX, "");
+                String filename = bankName + " - " + patch.getPatchName().trim() + PANEL;
+                saveFile(data,  bankName, filename, patch.getPatchName().trim());
             }
         } else {
             throw new IllegalArgumentException("Invalid Ensoniq ESQ-1 buffer");

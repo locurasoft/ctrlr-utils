@@ -2,6 +2,7 @@ package com.locurasoft.aupresetor.drivers;
 
 import com.google.common.io.Files;
 import com.locurasoft.aupresetor.AbstractDriver;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.w3c.dom.Document;
 
@@ -14,6 +15,7 @@ import java.nio.file.Paths;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+@Ignore
 public class RolanD50Test {
 
     @Test

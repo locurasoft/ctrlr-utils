@@ -1,0 +1,3 @@
+[submodule "fxp2aupreset"]
+	path = fxp2aupreset
+	url = git@github.com:alexras/fxp2aupreset.git
