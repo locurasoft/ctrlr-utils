@@ -1,5 +1,7 @@
 package com.locurasoft.sysexutils;
 
+import com.locurasoft.utils.SysexUtils;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;

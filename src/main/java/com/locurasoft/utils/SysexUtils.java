@@ -1,4 +1,4 @@
-package com.locurasoft.sysexutils;
+package com.locurasoft.utils;
 
 public final class SysexUtils {
 
