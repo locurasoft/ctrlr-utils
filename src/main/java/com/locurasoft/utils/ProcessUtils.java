@@ -1,4 +1,4 @@
-package com.locurasoft.aupresetor;
+package com.locurasoft.utils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -6,8 +6,8 @@ import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-public final class ProcessUtil {
-    private ProcessUtil() {
+public final class ProcessUtils {
+    private ProcessUtils() {
 
     }
 
@@ -22,7 +22,7 @@ public final class ProcessUtil {
 
         // read the output from the command
         System.out.println("Here is the standard output of the command:\n");
-        String s = null;
+        String s;
         while ((s = stdInput.readLine()) != null) {
             System.out.println(s);
         }

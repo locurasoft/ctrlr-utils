@@ -1,18 +1,14 @@
 package com.locurasoft.aupresetor.drivers;
 
 import com.google.common.collect.ImmutableMap;
-import com.locurasoft.aupresetor.AbstractDriver;
+import com.locurasoft.aupresetor.AbstractPanelDriver;
 import org.w3c.dom.Node;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerException;
 import javax.xml.xpath.XPathExpressionException;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
 
-public class RolandD50 extends AbstractDriver {
+public class RolandD50 extends AbstractPanelDriver {
 
     private static final int Voice_singleSize = 448;
     private static final int PATCH_FILE_SIZE = 458;
@@ -85,9 +81,7 @@ public class RolandD50 extends AbstractDriver {
 
     private byte[] trimSyxData(byte[] buffer) {
         int dataSize = buffer.length;
-        int cleanIndex = 0;
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byte[] cleanData = new byte[dataSize];
         int i = 0;
         while (i < dataSize) {
 //            --gets the voice parameter values
@@ -107,37 +101,29 @@ public class RolandD50 extends AbstractDriver {
 //-- to all modulators in the panel
     private void p2v(Data data, Patch patch) throws XPathExpressionException {
 //  -- gets the voice parameter values
-        Node nodeByName = getNodeByName(data, "toneSelector");
+        Node nodeByName = nodeByName(data, "toneSelector");
         nodeByName.setNodeValue(Integer.toString(0));
 
         for (int i = 0; i < Voice_singleSize; i++) {
-            Node mod = getNodeByCustName(data, String.format("Voice%d", i));
+            Node mod = nodeByCustName(data, String.format("Voice%d", i));
             if (mod != null && i != 174 && i != 366) {
 //                System.out.println(String.format("Voice%d", i) + " -> " + patch.getValue(i));
-                setModulatorIntValue(mod, patch.getValue(i));
+                setModIntValue(mod, patch.getValue(i));
             }
         }
 
-        setModulatorIntValue(getNodeByName(data, "UpperPartial1"), patch.getUpperPartial1Value());
-        setModulatorIntValue(getNodeByName(data, "UpperPartial2"), patch.getUpperPartial2Value());
-        setModulatorIntValue(getNodeByName(data, "LowerPartial1"), patch.getLowerPartial1Value());
-        setModulatorIntValue(getNodeByName(data, "LowerPartial2"), patch.getLowerPartial2Value());
+        setModIntValue(nodeByName(data, "UpperPartial1"), patch.getUpperPartial1Value());
+        setModIntValue(nodeByName(data, "UpperPartial2"), patch.getUpperPartial2Value());
+        setModIntValue(nodeByName(data, "LowerPartial1"), patch.getLowerPartial1Value());
+        setModIntValue(nodeByName(data, "LowerPartial2"), patch.getLowerPartial2Value());
 
 //        --Set Patch name
-        setModulatorStringValue(getNodeByName(data, "Name1"), patch.getPatchName());
-        setModulatorStringValue(getNodeByName(data, "VoiceName12"), patch.getUpperToneName());
-        setModulatorStringValue(getNodeByName(data, "VoiceName123"), patch.getLowerToneName());
+        setModStringValue(nodeByName(data, "Name1"), patch.getPatchName());
+        setModStringValue(nodeByName(data, "VoiceName12"), patch.getUpperToneName());
+        setModStringValue(nodeByName(data, "VoiceName123"), patch.getLowerToneName());
 
         cleanTree(data);
         cloneResourcesToExport(data);
-    }
-
-    private void dumpToFile(String s, String filename) {
-        try(  PrintWriter out = new PrintWriter( filename )  ){
-            out.println(s);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
     }
 
     protected void generateFxp(Data data) throws Exception {

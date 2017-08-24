@@ -26,9 +26,9 @@ public class AbstractDriverTest {
     @Test
     public void testGetNodeByVstIndex() throws Exception {
         Document doc = builder.parse(getClass().getResourceAsStream("/BehringerModulizer1200DSP.panel"));
-        AbstractDriver.Data data = new AbstractDriver.Data(new File(""), doc);
+        AbstractPanelDriver.Data data = new AbstractPanelDriver.Data(new File(""), doc);
         BehringerModulizer1200DSP tested = new BehringerModulizer1200DSP();
-        Node nodeByVstIndex = tested.getNodeByVstIndex(data, 1);
+        Node nodeByVstIndex = tested.nodeByVstIndex(data, 1);
         assertNotNull(nodeByVstIndex);
         NamedNodeMap attributes = nodeByVstIndex.getAttributes();
         assertNotNull(attributes);
@@ -40,9 +40,9 @@ public class AbstractDriverTest {
     @Test
     public void testGetNodeByCustName() throws Exception {
         Document doc = builder.parse(getClass().getResourceAsStream("/RolandD50.panel"));
-        AbstractDriver.Data data = new AbstractDriver.Data(new File(""), doc);
+        AbstractPanelDriver.Data data = new AbstractPanelDriver.Data(new File(""), doc);
         RolandD50 tested = new RolandD50();
-        Node nodeByCustName = tested.getNodeByCustName(data, "Voice384");
+        Node nodeByCustName = tested.nodeByCustName(data, "Voice384");
         assertNotNull(nodeByCustName);
         NamedNodeMap attributes = nodeByCustName.getAttributes();
         assertNotNull(attributes);
@@ -54,9 +54,9 @@ public class AbstractDriverTest {
     @Test
     public void testGetNodeByName() throws Exception {
         Document doc = builder.parse(getClass().getResourceAsStream("/RolandD50.panel"));
-        AbstractDriver.Data data = new AbstractDriver.Data(new File(""), doc);
+        AbstractPanelDriver.Data data = new AbstractPanelDriver.Data(new File(""), doc);
         RolandD50 tested = new RolandD50();
-        Node nodeByName = tested.getNodeByName(data, "Voice384");
+        Node nodeByName = tested.nodeByName(data, "Voice384");
         assertNotNull(nodeByName);
         NamedNodeMap attributes = nodeByName.getAttributes();
         assertNotNull(attributes);
@@ -68,13 +68,13 @@ public class AbstractDriverTest {
     @Test
     public void testGetModulatorMaxMin() throws Exception {
         Document doc = builder.parse(getClass().getResourceAsStream("/RolandD50.panel"));
-        AbstractDriver.Data data = new AbstractDriver.Data(new File(""), doc);
+        AbstractPanelDriver.Data data = new AbstractPanelDriver.Data(new File(""), doc);
         RolandD50 tested = new RolandD50();
-        Node nodeByCustName = tested.getNodeByCustName(data, "Voice384");
+        Node nodeByCustName = tested.nodeByCustName(data, "Voice384");
 
-        int modulatorMax = tested.getModulatorMax(nodeByCustName);
+        int modulatorMax = tested.modulatorMax(nodeByCustName);
         assertEquals(63, modulatorMax);
-        int modulatorMin = tested.getModulatorMin(nodeByCustName);
+        int modulatorMin = tested.modulatorMin(nodeByCustName);
         assertEquals(0, modulatorMin);
     }
 

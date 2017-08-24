@@ -1,15 +1,13 @@
 package com.locurasoft.aupresetor.drivers;
 
 import com.google.common.collect.ImmutableMap;
-import com.locurasoft.aupresetor.AbstractDriver;
+import com.locurasoft.aupresetor.AbstractPanelDriver;
 import org.w3c.dom.Node;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerException;
 import javax.xml.xpath.XPathExpressionException;
-import java.io.IOException;
 
-public class EnsoniqESQ1 extends AbstractDriver {
+public class EnsoniqESQ1 extends AbstractPanelDriver {
     private static final ImmutableMap<Integer, Integer> ADD_SUBT_OFFSETS = ImmutableMap.<Integer, Integer>builder()
             .put(6, 64)
             .put(8, 64)
@@ -188,12 +186,12 @@ public class EnsoniqESQ1 extends AbstractDriver {
 //  -- gets the voice parameter values
         for (int i = 1; i < 132; i++) {
             String name = String.format("Voice%d", i);
-            Node mod = getNodeByCustName(data, name);
+            Node mod = nodeByCustName(data, name);
             if (mod != null) {
-                setModulatorIntValue(mod, patch.getValue(i));
+                setModIntValue(mod, patch.getValue(i));
             }
         }
-        setModulatorStringValue(getNodeByName(data, "Name1"), patch.getPatchName());
+        setModStringValue(nodeByName(data, "Name1"), patch.getPatchName());
     }
 
 
@@ -245,7 +243,7 @@ public class EnsoniqESQ1 extends AbstractDriver {
             int signmask = spec[4];
             int offset = spec[5] - 5;
 
-            int modValue = 0;
+            int modValue;
             int j = data[offset] + data[offset + 1] * 16;
 
             switch (type) {
@@ -254,7 +252,7 @@ public class EnsoniqESQ1 extends AbstractDriver {
                     if (signed && (j & signmask) != 0) {
 //                    -- If the parameter is signed AND negative
 //                        bit.arshift(bit.bor(bit.band(-1, bit.bnot(bitmask)), bit.band(j, bitmask)), shift);
-                        modValue = (((-1 & ~bitmask) | (j & bitmask)) >> shift);
+                        modValue = (((~bitmask) | (j & bitmask)) >> shift);
                     } else {
 //            -- If the parameter is positive or not signed
 //                        bit.rshift(bit.band(j, bitmask), shift);

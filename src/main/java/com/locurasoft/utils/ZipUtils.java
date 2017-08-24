@@ -11,20 +11,12 @@ import java.util.zip.ZipOutputStream;
 
 public final class ZipUtils {
     private final String srcFolder;
-    List<String> fileList;
-//    private static final String OUTPUT_ZIP_FILE = "C:\\MyFile.zip";
-//    private static final String SOURCE_FOLDER = "C:\\testzip";
+    private List<String> fileList;
 
     private ZipUtils(File srcFolder) {
         fileList = new ArrayList<>();
         this.srcFolder = srcFolder.getAbsolutePath();
     }
-
-//    public static void main(String[] args) {
-//        ZipUtils appZip = new ZipUtils();
-//        appZip.generateFileList(new File(SOURCE_FOLDER));
-//        appZip.zipIt(OUTPUT_ZIP_FILE);
-//    }
 
     public static File zipFolder(File srcFolder, String outputFilename) {
         ZipUtils zipUtils = new ZipUtils(srcFolder);
@@ -39,7 +31,7 @@ public final class ZipUtils {
      *
      * @param zipFile output ZIP file location
      */
-    public void zipIt(String zipFile) {
+    void zipIt(String zipFile) {
 
         byte[] buffer = new byte[1024];
 
@@ -83,7 +75,7 @@ public final class ZipUtils {
      *
      * @param node file or directory
      */
-    public void generateFileList(File node) {
+    void generateFileList(File node) {
 
         //add file only
         if (node.isFile()) {
@@ -92,6 +84,7 @@ public final class ZipUtils {
 
         if (node.isDirectory()) {
             String[] subNote = node.list();
+            assert subNote != null;
             for (String filename : subNote) {
                 generateFileList(new File(node, filename));
             }
