@@ -17,26 +17,30 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
+
             <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>com.locurasoft.aupresetor.Aupresetor</mainClass>
-                        </manifest>
-                    </archive>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                    <finalName>aupresetor-${project.version}</finalName>
-                    <appendAssemblyId>false</appendAssemblyId>
-                </configuration>
+                <groupId>org.dstovall</groupId>
+                <artifactId>onejar-maven-plugin</artifactId>
+                <version>1.4.4</version>
                 <executions>
                     <execution>
-                        <id>make-assembly</id> <!-- this is used for inheritance merges -->
-                        <phase>package</phase> <!-- bind to the packaging phase -->
+                        <id>aupresetor</id>
+                        <configuration>
+                            <mainClass>com.locurasoft.aupresetor.Aupresetor</mainClass>
+                            <filename>aupresetor-${project.version}.${project.packaging}</filename>
+                        </configuration>
                         <goals>
-                            <goal>single</goal>
+                            <goal>one-jar</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>panel-compiler</id>
+                        <configuration>
+                            <mainClass>com.locurasoft.panelcompiler.CtrlrPanelCompiler</mainClass>
+                            <filename>panel-compiler-${project.version}.${project.packaging}</filename>
+                        </configuration>
+                        <goals>
+                            <goal>one-jar</goal>
                         </goals>
                     </execution>
                 </executions>

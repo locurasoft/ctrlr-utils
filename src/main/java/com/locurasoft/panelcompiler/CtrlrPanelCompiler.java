@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -37,9 +36,7 @@ import static com.locurasoft.panelcompiler.CtrlrPanelCompiler.Configurations.DEB
  * Hello world!
  */
 public class CtrlrPanelCompiler {
-    private final DocumentBuilder builder;
     private final Document document;
-    private final XPath xPath;
     private final File panelFile;
     private final Node luaManagerMethods;
 
@@ -76,6 +73,9 @@ public class CtrlrPanelCompiler {
         }
     }
 
+    /**
+     * Main method
+     */
     public static void main(String[] args) throws Exception {
         CtrlrPanelCompiler ctrlrPanelCompiler = new CtrlrPanelCompiler(args[0]);
 
@@ -90,12 +90,12 @@ public class CtrlrPanelCompiler {
         ctrlrPanelCompiler.saveDocument();
     }
 
-    public CtrlrPanelCompiler(String xmlPath) throws Exception {
+    CtrlrPanelCompiler(String xmlPath) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        builder = factory.newDocumentBuilder();
+        DocumentBuilder builder = factory.newDocumentBuilder();
         panelFile = new File(xmlPath);
         this.document = builder.parse(new FileInputStream(panelFile));
-        xPath = XPathFactory.newInstance().newXPath();
+        XPath xPath = XPathFactory.newInstance().newXPath();
         luaManagerMethods = (Node) xPath.compile("//luaManagerMethods").evaluate(document, XPathConstants.NODE);
     }
 
@@ -131,9 +131,9 @@ public class CtrlrPanelCompiler {
         return luaMethodGroup;
     }
 
-    private Element newLuaMethod(String elementName, String name, Node parent) {
+    private Element newLuaMethod(String name, Node parent) {
         parent.appendChild(document.createTextNode("\n"));
-        Element luaMethod = document.createElement(elementName);
+        Element luaMethod = document.createElement("luaMethod");
         luaMethod.setAttribute("uuid", newUuid());
         luaMethod.setAttribute("luaMethodName", name);
         luaMethod.setAttribute("luaMethodValid", "1");
@@ -141,18 +141,16 @@ public class CtrlrPanelCompiler {
         return luaMethod;
     }
 
-    private Node newFileMethod(File file, Node group) {
-        Element luaMethod = newLuaMethod("luaMethod", file.getName(), group);
+    private void newFileMethod(File file, Node group) {
+        Element luaMethod = newLuaMethod(file.getName(), group);
         luaMethod.setAttribute("luaMethodSourcePath", file.getAbsolutePath());
         luaMethod.setAttribute("luaMethodSource", "1");
-        return luaMethod;
     }
 
-    private Node newTextMethod(String name, String code, Node group) {
-        Element luaMethod = newLuaMethod("luaMethod", name, group);
+    private void newTextMethod(String name, String code, Node group) {
+        Element luaMethod = newLuaMethod(name, group);
         luaMethod.setAttribute("luaMethodCode", code);
         luaMethod.setAttribute("luaMethodSource", "0");
-        return luaMethod;
     }
 
     private void newController(Configurations config, File file, Node group) throws IOException {
@@ -243,6 +241,7 @@ public class CtrlrPanelCompiler {
                 jsonBuilder.append(", 'value':%s");
                 varargs.add(trimmedArg);
             } else if (EVENT_LIST.contains(trimmedArg.toLowerCase())) {
+                // TODO
             } else if (MIDI_LIST.contains(trimmedArg.toLowerCase())) {
                 jsonBuilder.append(", 'midi':'%s'");
                 varargs.add(trimmedArg + ":getData():toHexString(1)");
@@ -271,8 +270,8 @@ public class CtrlrPanelCompiler {
         File panelFolder = panelFile.getParentFile();
         File rootFolder = panelFolder.getParentFile();
         File srcFolder = Paths.get(rootFolder.getAbsolutePath(), "Generic", "src").toFile();
-        List<File> files = Arrays.asList(srcFolder.listFiles());
-        Collections.sort(files, new FileComparator(GENERICS_ORDER));
+        List<File> files = getFolderList(srcFolder);
+        files.sort(new FileComparator(GENERICS_ORDER));
         for (File file : files) {
             System.out.println("Adding " + file.getAbsolutePath());
             addMethod(config, file, generic);
@@ -330,11 +329,17 @@ public class CtrlrPanelCompiler {
         newTextMethod(methodName, fileContents, group);
     }
 
+    private List<File> getFolderList(File dir) {
+        File[] listFiles = dir.listFiles();
+        assert listFiles != null;
+        return Arrays.asList(listFiles);
+    }
+
     private void addPanelFunctions(Configurations config) throws IOException {
         File panelFolder = panelFile.getParentFile();
         File srcFolder = Paths.get(panelFolder.getAbsolutePath(), "src").toFile();
-        List<File> folders = Arrays.asList(srcFolder.listFiles());
-        Collections.sort(folders, new FileComparator(GROUP_ORDER));
+        List<File> folders = getFolderList(srcFolder);
+        folders.sort(new FileComparator(GROUP_ORDER));
         for (File folder : folders) {
             addPanelFolder(config, folder);
         }
@@ -343,19 +348,18 @@ public class CtrlrPanelCompiler {
     private void addPanelFolder(Configurations config, File folder) throws IOException {
         System.out.println("Adding " + folder.getAbsolutePath());
         Node node = newMethodGroup(folder.getName());
-        List<File> files = Arrays.asList(folder.listFiles());
+        List<File> files = getFolderList(folder);
         if ("process".equals(folder.getName())) {
-            Collections.sort(files, new ProcessFileComparator());
+            files.sort(new ProcessFileComparator());
         }
         for (File file : files) {
             if (file.isDirectory()) {
                 addPanelFolder(config, file);
             } else if ("controller".equals(folder.getName())) {
-                if (file.getName().endsWith("Autogen.lua")) {
-                    continue;
-                } else if (file.getName().endsWith("Controller.lua")) {
+                if (file.getName().endsWith("Controller.lua")) {
                     newController(config, file, node);
-                } else if (file.getName().endsWith(".lua")) {
+                } else if (file.getName().endsWith(".lua")
+                        && !file.getName().endsWith("Autogen.lua")) {
                     // Static method
                     addStaticMethod(config, file, node);
                 }
