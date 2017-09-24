@@ -1,9 +1,6 @@
 package com.locurasoft.panelcompiler;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -21,12 +18,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,9 +30,21 @@ import static com.locurasoft.panelcompiler.CtrlrPanelCompiler.Configurations.DEB
  * Hello world!
  */
 public class CtrlrPanelCompiler {
+
+    private static final List<String> MODULATOR_LIST = Arrays.asList("m", "mod", "modulator");
+    private static final List<String> COMPONENT_LIST = Arrays.asList("c", "comp", "component", "label", "lbl", "l");
+    private static final List<String> VALUE_LIST = Arrays.asList("v", "val", "value", "tab", "index", "tabindex");
+    private static final List<String> EVENT_LIST = Arrays.asList("e", "ev", "event");
+    private static final List<String> FILE_LIST = Arrays.asList("f", "file");
+    private static final List<String> SAMPLE_LIST = Arrays.asList("s", "sample", "samplename");
+    private static final List<String> CONTENT_LIST = Arrays.asList("c", "cont", "content");
+    private static final List<String> MIDI_LIST = Arrays.asList("mid", "midi");
+
     private final Document document;
     private final File panelFile;
     private final Node luaManagerMethods;
+    private final Configurations config;
+    private final Node uiPanelEditor;
 
     enum Configurations {
         DEBUG,
@@ -47,7 +53,7 @@ public class CtrlrPanelCompiler {
 
     private static final Pattern REQUIRE_PATTERN = Pattern.compile("^\\s*require");
     private static final List<String> GENERICS_ORDER = Arrays.asList("LuaObject.lua", "lutils.lua", "mutils.lua", "cutils.lua", "Dispatcher.lua",
-            "json4ctrlr.lua", "Logger.lua", "SyxMsg.lua", "AbstractController.lua", "AbstractBank.lua", "Queue.lua");
+            "json4ctrlr.lua", "Logger.lua", "SyxMsg.lua", "AbstractController.lua", "DefaultControllerBase.lua", "AbstractBank.lua", "Queue.lua");
     private static final List<String> GROUP_ORDER = Arrays.asList("message", "model", "service", "controller");
 
     static class FileComparator implements Comparator<File> {
@@ -73,30 +79,53 @@ public class CtrlrPanelCompiler {
         }
     }
 
+    private static final String[] PANELS = {
+            "AkaiS2000/Akai-S2000.panel",
+            "BehringerModulizer1200DSP/Behringer-Modulizer-1200DSP.panel",
+            "EmuProteus2/Emu-Proteus2.panel",
+            "EnsoniqEsq1/Ensoniq-ESQ1.panel",
+            "RolandD50/Roland-D50.panel",
+            "YamahaDX7/Yamaha-DX7.panel"
+    };
+
     /**
      * Main method
      */
     public static void main(String[] args) throws Exception {
-        CtrlrPanelCompiler ctrlrPanelCompiler = new CtrlrPanelCompiler(args[0]);
-
         Configurations config = DEBUG;
         if (args.length > 1) {
             config = Configurations.valueOf(args[1]);
         }
 
+        if (args[0].endsWith(".panel")) {
+            compilePanel(args[0], config);
+        } else {
+            for (String panelPath : PANELS) {
+                Path path = Paths.get(args[0], panelPath);
+                compilePanel(path.toFile().getAbsolutePath(), config);
+            }
+        }
+    }
+
+    private static void compilePanel(String panelPath, Configurations config) throws Exception {
+        System.out.println("Compiling " + panelPath);
+        CtrlrPanelCompiler ctrlrPanelCompiler = new CtrlrPanelCompiler(panelPath, config);
+
         ctrlrPanelCompiler.removeOldFunctions();
-        ctrlrPanelCompiler.addGenerics(config);
-        ctrlrPanelCompiler.addPanelFunctions(config);
+        ctrlrPanelCompiler.addGenerics();
+        ctrlrPanelCompiler.addPanelFunctions();
         ctrlrPanelCompiler.saveDocument();
     }
 
-    CtrlrPanelCompiler(String xmlPath) throws Exception {
+    private CtrlrPanelCompiler(String xmlPath, Configurations config) throws Exception {
+        this.config = config;
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         panelFile = new File(xmlPath);
         this.document = builder.parse(new FileInputStream(panelFile));
         XPath xPath = XPathFactory.newInstance().newXPath();
         luaManagerMethods = (Node) xPath.compile("//luaManagerMethods").evaluate(document, XPathConstants.NODE);
+        uiPanelEditor = (Node) xPath.compile("//uiPanelEditor").evaluate(document, XPathConstants.NODE);
     }
 
     private void removeOldFunctions() {
@@ -153,138 +182,29 @@ public class CtrlrPanelCompiler {
         luaMethod.setAttribute("luaMethodSource", "0");
     }
 
-    private void newController(Configurations config, File file, Node group) throws IOException {
-        String name = file.getName();
-        String controllerClassName = name.substring(0, name.indexOf(".lua"));
-        String controllerName = controllerClassName.substring(0, controllerClassName.indexOf("Controller")).toLowerCase();
-        Node controllerGroup = newMethodGroup(controllerName, group);
-        addMethod(config, file, controllerGroup);
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(new FileReader(file));
-
-            StringBuilder staticsBuilder = new StringBuilder();
-            Pattern pattern = Pattern.compile(String.format("function %s:(on[^\\(]+)\\(([^\\)]*)\\)", controllerClassName), Pattern.DOTALL);
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                Matcher matcher = pattern.matcher(currentLine);
-                if (matcher.find()) {
-                    StringBuilder codeBuilder = new StringBuilder();
-                    codeBuilder.append("function ").append(matcher.group(1)).append("(").append(matcher.group(2)).append(")\r\n");
-                    codeBuilder.append("    -- This variable stops index issues during panel bootup\r\n");
-                    codeBuilder.append("    if panel:getBootstrapState() or panel:getProgramState() then\r\n");
-                    codeBuilder.append("      return\r\n");
-                    codeBuilder.append("    end\r\n");
-                    codeBuilder.append("\r\n");
-                    codeBuilder.append("    LOGGER:");
-                    switch (config) {
-                        case DEBUG:
-                            codeBuilder.append("info");
-                            break;
-                        case RELEASE:
-                            codeBuilder.append("fine");
-                            break;
-                    }
-
-                    codeBuilder.append("(").append(getLogJson(matcher.group(1), matcher.group(2))).append(")\r\n");
-                    codeBuilder.append("\r\n");
-                    codeBuilder.append("    ").append(controllerClassName.substring(0, 1).toLowerCase())
-                            .append(controllerClassName.substring(1)).append(":").append(matcher.group(1)).append("(")
-                            .append(matcher.group(2)).append(")\r\n");
-                    codeBuilder.append("end\r\n");
-                    newTextMethod(matcher.group(1), codeBuilder.toString(), controllerGroup);
-                    staticsBuilder.append(codeBuilder.toString()).append("\r\n\r\n");
-                }
-            }
-            if (!staticsBuilder.toString().isEmpty()) {
-                FileOutputStream fos = new FileOutputStream(new File(file.getParentFile(), file.getName().replace(".lua", "Autogen.lua")));
-                fos.write(staticsBuilder.toString().getBytes());
-                fos.flush();
-                fos.close();
-            }
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
-        }
-    }
-
-    private static final List<String> MODULATOR_LIST = Arrays.asList("m", "mod", "modulator");
-    private static final List<String> COMPONENT_LIST = Arrays.asList("c", "comp", "component", "label", "lbl", "l");
-    private static final List<String> VALUE_LIST = Arrays.asList("v", "val", "value", "tab", "index", "tabindex");
-    private static final List<String> EVENT_LIST = Arrays.asList("e", "ev", "event");
-    private static final List<String> FILE_LIST = Arrays.asList("f", "file");
-    private static final List<String> SAMPLE_LIST = Arrays.asList("s", "sample", "samplename");
-    private static final List<String> CONTENT_LIST = Arrays.asList("c", "cont", "content");
-    private static final List<String> MIDI_LIST = Arrays.asList("mid", "midi");
-
-    private String getLogJson(String methodName, String args) {
-        StringBuilder jsonBuilder = new StringBuilder();
-        jsonBuilder.append("\"\\\"{").append("'methodName':'").append(methodName).append("'");
-
-        ArrayList<String> varargs = new ArrayList<>();
-        String[] argList = args.split(",");
-        for (String arg : argList) {
-            String trimmedArg = arg.trim();
-            if (MODULATOR_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'modulator':'%s'");
-                varargs.add(trimmedArg + ":getProperty('name')");
-            } else if (COMPONENT_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'component':'%s'");
-                if (methodName.equals("onPadSelected")) {
-                    varargs.add(trimmedArg + ":getProperty('componentGroupName'):sub(0, " + trimmedArg +
-                            ":getProperty('componentGroupName'):find(\"-grp\") - 1)");
-                } else {
-                    varargs.add(trimmedArg + ":getOwner():getProperty('name')");
-                }
-            } else if (VALUE_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'value':%s");
-                varargs.add(trimmedArg);
-            } else if (EVENT_LIST.contains(trimmedArg.toLowerCase())) {
-                // TODO
-            } else if (MIDI_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'midi':'%s'");
-                varargs.add(trimmedArg + ":getData():toHexString(1)");
-            } else if (FILE_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'file':'%s'");
-                varargs.add(trimmedArg + ":getFullPathName()");
-            } else if (SAMPLE_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'sample':'%s'");
-                varargs.add(trimmedArg);
-            } else if (CONTENT_LIST.contains(trimmedArg.toLowerCase())) {
-                jsonBuilder.append(", 'content':'%s'");
-                varargs.add(trimmedArg);
-            } else {
-                throw new IllegalArgumentException("Invalid arg: " + trimmedArg);
-            }
-        }
-        jsonBuilder.append("},\\\" ..\"");
-        for (String vararg : varargs) {
-            jsonBuilder.append(", ").append(vararg);
-        }
-        return jsonBuilder.toString();
-    }
-
-    private void addGenerics(Configurations config) throws IOException {
+    private void addGenerics() throws IOException {
         Node generic = newMethodGroup("generic");
-        File panelFolder = panelFile.getParentFile();
-        File rootFolder = panelFolder.getParentFile();
-        File srcFolder = Paths.get(rootFolder.getAbsolutePath(), "Generic", "src").toFile();
-        List<File> files = getFolderList(srcFolder);
+        List<File> files = getFolderList(getGenericSrcDir());
         files.sort(new FileComparator(GENERICS_ORDER));
         for (File file : files) {
             System.out.println("Adding " + file.getAbsolutePath());
-            addMethod(config, file, generic);
+            addMethod(file, generic);
         }
     }
 
-    private void addMethod(Configurations config, File file, Node group) throws IOException {
+    private File getGenericSrcDir() {
+        File panelFolder = panelFile.getParentFile();
+        File rootFolder = panelFolder.getParentFile();
+        return Paths.get(rootFolder.getAbsolutePath(), "Generic", "src").toFile();
+    }
+
+    private void addMethod(File file, Node group) throws IOException {
         switch (config) {
             case DEBUG:
                 newFileMethod(file, group);
                 break;
             case RELEASE:
-                String fileContents = getFileContents(config, file);
+                String fileContents = getFileContents(file);
                 String methodName = getMethodName(file);
                 newTextMethod(methodName, fileContents, group);
                 break;
@@ -296,7 +216,7 @@ public class CtrlrPanelCompiler {
         return name.substring(0, name.indexOf(".lua"));
     }
 
-    private String getFileContents(Configurations config, File file) throws IOException {
+    private String getFileContents(File file) throws IOException {
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new FileReader(file));
@@ -323,9 +243,9 @@ public class CtrlrPanelCompiler {
         }
     }
 
-    private void addStaticMethod(Configurations config, File file, Node group) throws IOException {
+    private void addStaticMethod(File file, Node group) throws IOException {
         String methodName = getMethodName(file);
-        String fileContents = getFileContents(config, file);
+        String fileContents = getFileContents(file);
         newTextMethod(methodName, fileContents, group);
     }
 
@@ -335,17 +255,17 @@ public class CtrlrPanelCompiler {
         return Arrays.asList(listFiles);
     }
 
-    private void addPanelFunctions(Configurations config) throws IOException {
+    private void addPanelFunctions() throws IOException {
         File panelFolder = panelFile.getParentFile();
         File srcFolder = Paths.get(panelFolder.getAbsolutePath(), "src").toFile();
         List<File> folders = getFolderList(srcFolder);
         folders.sort(new FileComparator(GROUP_ORDER));
         for (File folder : folders) {
-            addPanelFolder(config, folder);
+            addPanelFolder(folder);
         }
     }
 
-    private void addPanelFolder(Configurations config, File folder) throws IOException {
+    private void addPanelFolder(File folder) throws IOException {
         System.out.println("Adding " + folder.getAbsolutePath());
         Node node = newMethodGroup(folder.getName());
         List<File> files = getFolderList(folder);
@@ -354,17 +274,17 @@ public class CtrlrPanelCompiler {
         }
         for (File file : files) {
             if (file.isDirectory()) {
-                addPanelFolder(config, file);
+                addPanelFolder(file);
             } else if ("controller".equals(folder.getName())) {
                 if (file.getName().endsWith("Controller.lua")) {
-                    newController(config, file, node);
+                    new ControllerParser(file, node).parse();
                 } else if (file.getName().endsWith(".lua")
                         && !file.getName().endsWith("Autogen.lua")) {
                     // Static method
-                    addStaticMethod(config, file, node);
+                    addStaticMethod(file, node);
                 }
             } else {
-                addMethod(config, file, node);
+                addMethod(file, node);
             }
         }
     }
@@ -375,5 +295,171 @@ public class CtrlrPanelCompiler {
         StreamResult result = new StreamResult(new File(panelFile.getParentFile(), panelFile.getName().replace(".panel", "-new.panel")));
         DOMSource domSource = new DOMSource(document);
         transformer.transform(domSource, result);
+    }
+
+    class ControllerParser {
+
+        private final File file;
+        private final Node parentNode;
+        private final String controllerName;
+        private final String controllerClassName;
+        private final Pattern callbackPattern;
+        private final Pattern loadFromfilePattern;
+        private final Pattern defaultControllerBasePattern;
+        private final Pattern dcbCallbackPattern;
+        private final Pattern dcbLoadFromfilePattern;
+
+        ControllerParser(File file, Node parent) {
+            this.file = file;
+            this.parentNode = parent;
+            String name = file.getName();
+            controllerClassName = name.substring(0, name.indexOf(".lua"));
+            controllerName = controllerClassName.substring(0, controllerClassName.indexOf("Controller")).toLowerCase();
+            callbackPattern = Pattern.compile(String.format("function %s:(on[^\\(]+)\\(([^\\)]*)\\)", controllerClassName), Pattern.DOTALL);
+            dcbCallbackPattern = Pattern.compile(String.format("function DefaultControllerBase:(on[^\\(]+)\\(([^\\)]*)\\)"), Pattern.DOTALL);
+            loadFromfilePattern = Pattern.compile(String.format("function %s:(loadVoiceFromFile[^\\(]*)\\(file\\)", controllerClassName), Pattern.DOTALL);
+            dcbLoadFromfilePattern = Pattern.compile(String.format("function DefaultControllerBase:(loadVoiceFromFile[^\\(]*)\\(file\\)"), Pattern.DOTALL);
+            defaultControllerBasePattern = Pattern.compile(String.format("^\\s*__index\\s*=\\s*DefaultControllerBase"));
+        }
+
+        private void parse() throws IOException {
+            Node controllerGroup = newMethodGroup(controllerName, parentNode);
+            addMethod(file, controllerGroup);
+            BufferedReader reader = null;
+            HashSet<String> addedFunctions = new HashSet<>();
+            try {
+                reader = new BufferedReader(new FileReader(file));
+
+                StringBuilder staticsBuilder = new StringBuilder();
+                String currentLine;
+                while ((currentLine = reader.readLine()) != null) {
+                    Matcher callbackMatcher = callbackPattern.matcher(currentLine);
+                    if (callbackMatcher.find()) {
+                        addCallback(addedFunctions, callbackMatcher, controllerGroup, staticsBuilder);
+                    } else if (loadFromfilePattern.matcher(currentLine).find()) {
+                        appendOnFilesDropped(addedFunctions, controllerClassName, parentNode, staticsBuilder);
+                    } else if (defaultControllerBasePattern.matcher(currentLine).find()) {
+                        BufferedReader dcbReader = new BufferedReader(new FileReader(new File(getGenericSrcDir(), "DefaultControllerBase.lua")));
+                        String currentLine2;
+                        while ((currentLine2 = dcbReader.readLine()) != null) {
+                            Matcher callbackMatcher2 = dcbCallbackPattern.matcher(currentLine2);
+                            if (callbackMatcher2.find()) {
+                                addCallback(addedFunctions, callbackMatcher2, controllerGroup, staticsBuilder);
+                            } else if (dcbLoadFromfilePattern.matcher(currentLine2).find()) {
+                                appendOnFilesDropped(addedFunctions, controllerClassName, parentNode, staticsBuilder);
+                            }
+                        }
+                    }
+                }
+                if (!staticsBuilder.toString().isEmpty()) {
+                    FileOutputStream fos = new FileOutputStream(new File(file.getParentFile(), file.getName().replace(".lua", "Autogen.lua")));
+                    fos.write(staticsBuilder.toString().getBytes());
+                    fos.flush();
+                    fos.close();
+                }
+            } finally {
+                if (reader != null) {
+                    reader.close();
+                }
+            }
+        }
+
+        private void addCallback(Set<String> addedFunctions, Matcher callbackMatcher, Node controllerGroup, StringBuilder staticsBuilder) {
+            if (addedFunctions.contains(callbackMatcher.group(1))) {
+                return;
+            }
+            String methodString = getMethodString(controllerClassName, callbackMatcher.group(1), callbackMatcher.group(2));
+            newTextMethod(callbackMatcher.group(1), methodString, controllerGroup);
+            staticsBuilder.append(methodString).append("\r\n\r\n");
+            addedFunctions.add(callbackMatcher.group(1));
+        }
+
+        private void appendOnFilesDropped(Set<String> addedFunctions, String controllerClassName, Node group, StringBuilder staticsBuilder) {
+            String codeBuilder = "---\r\n-- Callback to indicate that the user has dropped the files onto this panel\r\n" +
+                    "--\r\n-- @files   - StringArray object that has the file paths\r\n-- @x       - x coordinate where the event occured" +
+                    "-- @y       - y coordinate where the event occured\r\n" +
+                    "function onFilesDroppedToPanel(files, x, y)\r\n    if files:size() > 0 then\r\n        local f = File(files:get(0))\r\n" +
+                    String.format("        %s%s:loadVoiceFromFile(f)\r\n", controllerClassName.substring(0, 1).toLowerCase(), controllerClassName.substring(1)) + "    end\r\nend\r\n";
+            newTextMethod("onFilesDroppedToPanel", codeBuilder, group);
+            NamedNodeMap attributes = uiPanelEditor.getAttributes();
+            attributes.getNamedItem("luaPanelFileDragDropHandler").setTextContent("onFilesDroppedToPanel");
+            staticsBuilder.append(codeBuilder).append("\r\n\r\n");
+            addedFunctions.add("onFilesDroppedToPanel");
+        }
+
+        private String getMethodString(String controllerClassName, String methodName, String methodArgs) {
+            StringBuilder codeBuilder = new StringBuilder();
+            codeBuilder.append("function ").append(methodName).append("(").append(methodArgs).append(")\r\n");
+            codeBuilder.append("    -- This variable stops index issues during panel bootup\r\n");
+            codeBuilder.append("    if panel:getBootstrapState() or panel:getProgramState() then\r\n");
+            codeBuilder.append("      return\r\n");
+            codeBuilder.append("    end\r\n");
+            codeBuilder.append("\r\n");
+            codeBuilder.append("    LOGGER:");
+            switch (config) {
+                case DEBUG:
+                    codeBuilder.append("info");
+                    break;
+                case RELEASE:
+                    codeBuilder.append("fine");
+                    break;
+            }
+
+            codeBuilder.append("(").append(getLogJson(methodName, methodArgs)).append(")\r\n");
+            codeBuilder.append("\r\n");
+            codeBuilder.append("    ").append(controllerClassName.substring(0, 1).toLowerCase())
+                    .append(controllerClassName.substring(1)).append(":").append(methodName).append("(")
+                    .append(methodArgs).append(")\r\n");
+            codeBuilder.append("end\r\n");
+            return codeBuilder.toString();
+        }
+
+        private String getLogJson(String methodName, String args) {
+            StringBuilder jsonBuilder = new StringBuilder();
+            jsonBuilder.append("\"\\\"{").append("'methodName':'").append(methodName).append("'");
+
+            ArrayList<String> varargs = new ArrayList<>();
+            String[] argList = args.split(",");
+            for (String arg : argList) {
+                String trimmedArg = arg.trim();
+                if (MODULATOR_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'modulator':'%s'");
+                    varargs.add(trimmedArg + ":getProperty('name')");
+                } else if (COMPONENT_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'component':'%s'");
+                    if (methodName.equals("onPadSelected")) {
+                        varargs.add(trimmedArg + ":getProperty('componentGroupName'):sub(0, " + trimmedArg +
+                                ":getProperty('componentGroupName'):find(\"-grp\") - 1)");
+                    } else {
+                        varargs.add(trimmedArg + ":getOwner():getProperty('name')");
+                    }
+                } else if (VALUE_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'value':%s");
+                    varargs.add(trimmedArg);
+                } else if (EVENT_LIST.contains(trimmedArg.toLowerCase())) {
+                    // TODO
+                } else if (MIDI_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'midi':'%s'");
+                    varargs.add(trimmedArg + ":getData():toHexString(1)");
+                } else if (FILE_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'file':'%s'");
+                    varargs.add(trimmedArg + ":getFullPathName()");
+                } else if (SAMPLE_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'sample':'%s'");
+                    varargs.add(trimmedArg);
+                } else if (CONTENT_LIST.contains(trimmedArg.toLowerCase())) {
+                    jsonBuilder.append(", 'content':'%s'");
+                    varargs.add(trimmedArg);
+                } else {
+                    throw new IllegalArgumentException("Invalid arg: " + trimmedArg);
+                }
+            }
+            jsonBuilder.append("},\\\" ..\"");
+            for (String vararg : varargs) {
+                jsonBuilder.append(", ").append(vararg);
+            }
+            return jsonBuilder.toString();
+        }
+
     }
 }

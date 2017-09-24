@@ -1,9 +1,6 @@
 package com.locurasoft.utils;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -19,8 +16,12 @@ public final class ZipUtils {
     }
 
     public static File zipFolder(File srcFolder, String outputFilename) {
+        return zipFolder(srcFolder, null, outputFilename);
+    }
+
+    public static File zipFolder(File srcFolder, FileFilter filter, String outputFilename) {
         ZipUtils zipUtils = new ZipUtils(srcFolder);
-        zipUtils.generateFileList(srcFolder);
+        zipUtils.generateFileList(srcFolder, filter);
         File output = new File(srcFolder.getParent(), outputFilename);
         zipUtils.zipIt(output.getAbsolutePath());
         return output;
@@ -74,8 +75,9 @@ public final class ZipUtils {
      * and add the file into fileList
      *
      * @param node file or directory
+     * @param filter
      */
-    void generateFileList(File node) {
+    void generateFileList(File node, FileFilter filter) {
 
         //add file only
         if (node.isFile()) {
@@ -83,10 +85,10 @@ public final class ZipUtils {
         }
 
         if (node.isDirectory()) {
-            String[] subNote = node.list();
+            File[] subNote = node.listFiles(filter);
             assert subNote != null;
-            for (String filename : subNote) {
-                generateFileList(new File(node, filename));
+            for (File file : subNote) {
+                generateFileList(new File(node, file.getName()), filter);
             }
         }
 

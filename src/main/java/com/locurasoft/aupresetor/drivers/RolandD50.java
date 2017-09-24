@@ -138,7 +138,7 @@ public class RolandD50 extends AbstractPanelDriver {
                 Patch patch = newPatch(trimSyxData, i);
                 p2v(data, patch);
                 String bankName = data.input().getName().replace(SYX, "");
-                String fileName = bankName + " - " + patch.getPatchName().trim() + PANEL;
+                String fileName = String.format("%d - %s", i + 1, patch.getPatchName().trim() + PANEL);
                 saveFile(data, bankName, fileName, patch.getPatchName().trim());
             }
         } else {

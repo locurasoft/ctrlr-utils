@@ -1,6 +1,8 @@
 package com.locurasoft.aupresetor;
 
 import com.locurasoft.utils.ProcessUtils;
+import com.locurasoft.utils.ZipUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 
 import java.io.*;
@@ -10,6 +12,7 @@ import java.util.Map;
 
 import static com.locurasoft.utils.ByteUtils.reverse;
 import static com.locurasoft.utils.ByteUtils.trimPatchname;
+import static com.locurasoft.utils.ZipUtils.zipFolder;
 
 /**
  * Hello world!
@@ -29,11 +32,9 @@ public class Aupresetor {
 
         File outputFolder = new File(outputPath);
         if (outputFolder.exists()) {
-            System.out.println("Output folder already exists...");
-            System.exit(0);
-        } else {
-            outputFolder.mkdir();
+            FileUtils.deleteDirectory(outputFolder);
         }
+        outputFolder.mkdir();
 
         driver.setInputFolder(inputPath);
         driver.setOutputFolder(outputFolder.getAbsolutePath());
@@ -41,14 +42,21 @@ public class Aupresetor {
         HashSet<File> folders = new HashSet<>();
         Map<File, String> panels = driver.generatePanels();
         for (Map.Entry<File, String> entry : panels.entrySet()) {
-            File bpanelz = writeBpanelz(entry.getKey());
-            File fxpFile = writeFxp(bpanelz, entry.getValue());
+//            File bpanelz = writeBpanelz(entry.getKey());
+            File fxpFile = writeFxp(entry.getKey(), entry.getValue());
             folders.add(fxpFile.getParentFile());
         }
 
         for (File folder : folders) {
             writeAupresets(folder);
         }
+
+        zipFolder(outputFolder, new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.isDirectory() || pathname.getName().endsWith(".aupreset");
+            }
+        }, String.format("%s-aupresets.zip", driverName));
     }
 
     static File writeBpanelz(File panelFile) throws IOException, InterruptedException {
@@ -75,7 +83,7 @@ public class Aupresetor {
     }
 
     static File writeFxp(File bpanelzFile, String patchName) throws IOException {
-        File fxpFile = new File(bpanelzFile.getParent(), bpanelzFile.getName().replace(".bpanelz", ".fxp"));
+        File fxpFile = new File(bpanelzFile.getParent(), bpanelzFile.getName().replace(".panel", ".fxp"));
         byte[] bpanelzBytes = IOUtils.toByteArray(new FileInputStream(bpanelzFile));
         FileOutputStream os = new FileOutputStream(fxpFile);
         os.write("CcnK".getBytes()); // chunkMagic

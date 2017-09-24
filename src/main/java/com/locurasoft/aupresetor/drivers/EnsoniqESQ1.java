@@ -209,8 +209,8 @@ public class EnsoniqESQ1 extends AbstractPanelDriver {
                 Patch patch = new Patch(buffer);
                 p2v(data, patch);
                 String bankName = data.input().getName().replace(SYX, "");
-                String filename = bankName + " - " + patch.getPatchName().trim() + PANEL;
-                saveFile(data,  bankName, filename, patch.getPatchName().trim());
+                String fileName = String.format("%d - %s", i + 1, patch.getPatchName().trim() + PANEL);
+                saveFile(data,  bankName, fileName, patch.getPatchName().trim());
             }
         } else {
             throw new IllegalArgumentException("Invalid Ensoniq ESQ-1 buffer");
