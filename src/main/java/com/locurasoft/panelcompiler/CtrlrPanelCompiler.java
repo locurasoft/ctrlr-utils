@@ -85,6 +85,7 @@ public class CtrlrPanelCompiler {
             "EmuProteus2/Emu-Proteus2.panel",
             "EnsoniqEsq1/Ensoniq-ESQ1.panel",
             "RolandD50/Roland-D50.panel",
+            "YamahaCS1x/Yamaha-CS1x.panel",
             "YamahaDX7/Yamaha-DX7.panel"
     };
 
@@ -401,7 +402,8 @@ public class CtrlrPanelCompiler {
                     codeBuilder.append("info");
                     break;
                 case RELEASE:
-                    codeBuilder.append("fine");
+                    codeBuilder.append("warn");
+//                    codeBuilder.append("fine");
                     break;
             }
 
