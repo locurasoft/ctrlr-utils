@@ -53,7 +53,8 @@ public class CtrlrPanelCompiler {
 
     private static final Pattern REQUIRE_PATTERN = Pattern.compile("^\\s*require");
     private static final List<String> GENERICS_ORDER = Arrays.asList("LuaObject.lua", "lutils.lua", "mutils.lua", "cutils.lua", "Dispatcher.lua",
-            "json4ctrlr.lua", "Logger.lua", "SyxMsg.lua", "AbstractController.lua", "DefaultControllerBase.lua", "AbstractBank.lua", "Queue.lua");
+            "json4ctrlr.lua", "Logger.lua", "SyxMsg.lua", "AbstractController.lua", "DefaultControllerBase.lua", "AbstractBank.lua", "Queue.lua",
+            "EffectParamService.lua");
     private static final List<String> GROUP_ORDER = Arrays.asList("message", "model", "service", "controller");
 
     static class FileComparator implements Comparator<File> {
@@ -85,6 +86,7 @@ public class CtrlrPanelCompiler {
             "EmuProteus2/Emu-Proteus2.panel",
             "EnsoniqEsq1/Ensoniq-ESQ1.panel",
             "RolandD50/Roland-D50.panel",
+            "RolandJV1080/Roland-JV1080.panel",
             "YamahaCS1x/Yamaha-CS1x.panel",
             "YamahaDX7/Yamaha-DX7.panel"
     };
@@ -290,7 +292,7 @@ public class CtrlrPanelCompiler {
         }
     }
 
-    private void saveDocument() throws IOException, TransformerException {
+    private void saveDocument() throws TransformerException {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
         StreamResult result = new StreamResult(new File(panelFile.getParentFile(), panelFile.getName().replace(".panel", "-new.panel")));
@@ -317,10 +319,10 @@ public class CtrlrPanelCompiler {
             controllerClassName = name.substring(0, name.indexOf(".lua"));
             controllerName = controllerClassName.substring(0, controllerClassName.indexOf("Controller")).toLowerCase();
             callbackPattern = Pattern.compile(String.format("function %s:(on[^\\(]+)\\(([^\\)]*)\\)", controllerClassName), Pattern.DOTALL);
-            dcbCallbackPattern = Pattern.compile(String.format("function DefaultControllerBase:(on[^\\(]+)\\(([^\\)]*)\\)"), Pattern.DOTALL);
+            dcbCallbackPattern = Pattern.compile("function DefaultControllerBase:(on[^(]+)\\(([^)]*)\\)", Pattern.DOTALL);
             loadFromfilePattern = Pattern.compile(String.format("function %s:(loadVoiceFromFile[^\\(]*)\\(file\\)", controllerClassName), Pattern.DOTALL);
-            dcbLoadFromfilePattern = Pattern.compile(String.format("function DefaultControllerBase:(loadVoiceFromFile[^\\(]*)\\(file\\)"), Pattern.DOTALL);
-            defaultControllerBasePattern = Pattern.compile(String.format("^\\s*__index\\s*=\\s*DefaultControllerBase"));
+            dcbLoadFromfilePattern = Pattern.compile("function DefaultControllerBase:(loadVoiceFromFile[^(]*)\\(file\\)", Pattern.DOTALL);
+            defaultControllerBasePattern = Pattern.compile("^\\s*__index\\s*=\\s*DefaultControllerBase");
         }
 
         private void parse() throws IOException {
@@ -388,6 +390,12 @@ public class CtrlrPanelCompiler {
             addedFunctions.add("onFilesDroppedToPanel");
         }
 
+        private final List<String> RETURN_CALLBACKS = Arrays.asList("onGetValueForMIDI", "onGetValueFromMIDI");
+
+        private boolean isReturnCallback(String methodName) {
+            return RETURN_CALLBACKS.contains(methodName);
+        }
+
         private String getMethodString(String controllerClassName, String methodName, String methodArgs) {
             StringBuilder codeBuilder = new StringBuilder();
             codeBuilder.append("function ").append(methodName).append("(").append(methodArgs).append(")\r\n");
@@ -409,7 +417,11 @@ public class CtrlrPanelCompiler {
 
             codeBuilder.append("(").append(getLogJson(methodName, methodArgs)).append(")\r\n");
             codeBuilder.append("\r\n");
-            codeBuilder.append("    ").append(controllerClassName.substring(0, 1).toLowerCase())
+            codeBuilder.append("    ");
+            if (isReturnCallback(methodName)) {
+                codeBuilder.append("return ");
+            }
+            codeBuilder.append(controllerClassName.substring(0, 1).toLowerCase())
                     .append(controllerClassName.substring(1)).append(":").append(methodName).append("(")
                     .append(methodArgs).append(")\r\n");
             codeBuilder.append("end\r\n");

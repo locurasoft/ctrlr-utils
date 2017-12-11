@@ -1,4 +1,4 @@
-package com.locurasoft.vstindexreducer;
+package com.locurasoft.cs1x;
 
 import java.util.Locale;
 
@@ -12,7 +12,7 @@ public class CS1xValueGenerator {
     private static String ER_ZERO = "\"E=R\", ";
     private static String ER_ABOVE_ZERO = "\"E<R%d\", ";
     public static void main(String[] args) {
-        performanceBank();
+        detune();
     }
 
     static void performanceBank() {
@@ -21,16 +21,16 @@ public class CS1xValueGenerator {
         }
     }
 
-    static void detune() {
+    private static void detune() {
         for (int i = -128; i < 128; i++) {
             float f = ((float)i) / 10;
-            System.out.println(String.format("%.1f", f));
+            System.out.println(String.format("%.1f=%d", f, i + 128));
         }
     }
 
     static void arpTempo() {
         for (int i = 0; i <= 201; i++) {
-            String s = "";
+            String s;
             if (i == 0) {
                 s = "MIDI";
             } else {
@@ -59,7 +59,7 @@ public class CS1xValueGenerator {
             if (i < 0) {
                 System.out.print(String.format(BELOW_ZERO, i * -1));
             } else if (i == 0) {
-                System.out.print(String.format(ZERO));
+                System.out.print(ZERO);
             } else {
                 System.out.print(String.format(ABOVE_ZERO, i));
             }
@@ -83,7 +83,7 @@ public class CS1xValueGenerator {
             if (i < 0) {
                 System.out.print(String.format(ER_BELOW_ZERO, i * -1));
             } else if (i == 0) {
-                System.out.print(String.format(ER_ZERO));
+                System.out.print(ER_ZERO);
             } else {
                 System.out.print(String.format(ER_ABOVE_ZERO, i));
             }
